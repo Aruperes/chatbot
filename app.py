@@ -10,9 +10,15 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Konfigurasi API Key & Token
+# ==============================================================================
+# KONFIGURASI
+# ==============================================================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 FONTEE_TOKEN = os.getenv("FONTEE_TOKEN") # Wajib ada di .env
+
+# Validasi Key
+if not GEMINI_API_KEY or not FONTEE_TOKEN:
+    print("⚠️  PERINGATAN: API Key atau Token Fontee belum diset di file .env!")
 
 # Setup Google Gemini
 try:
@@ -21,7 +27,6 @@ except Exception as e:
     print(f"Error Konfigurasi API Key: {e}")
 
 # Inisialisasi Model
-# Catatan: Menggunakan gemini-1.5-flash yang stabil dan cepat
 model = genai.GenerativeModel(
     model_name='gemini-1.5-flash',
     system_instruction="""
@@ -40,7 +45,9 @@ model = genai.GenerativeModel(
     """
 )
 
-# Fungsi khusus untuk mengirim pesan via Fontee (Push Mode)
+# ==============================================================================
+# FUNGSI KIRIM PESAN (PUSH KE FONNTE)
+# ==============================================================================
 def kirim_wa(nomor_tujuan, pesan):
     url = "https://api.fonnte.com/send"
     headers = {
@@ -54,10 +61,13 @@ def kirim_wa(nomor_tujuan, pesan):
     
     try:
         response = requests.post(url, headers=headers, data=payload)
-        print(f"Log Fontee: {response.text}") # Log respon dari Fontee
+        print(f"Log Fonnte: {response.text}") # Log respon dari Fontee
     except Exception as e:
         print(f"Gagal Mengirim WA: {e}")
 
+# ==============================================================================
+# ROUTE WEBHOOK
+# ==============================================================================
 @app.route('/', methods=['GET'])
 def home():
     return "Server Bidan Citra (Push Mode) is Running!"
@@ -74,32 +84,35 @@ def webhook():
     user_message = data.get('message', '')
     sender_number = data.get('sender', '') # Nomor HP pengirim (Target balasan)
     sender_name = data.get('name', 'Bunda') # Nama pengirim (jika ada)
+    is_from_me = data.get('from_me', False) # Cek apakah pesan dari bot sendiri
 
-    # Cek apakah pesan valid (Bukan dari bot sendiri/broadcast status)
-    # Fontee kadang mengirim status message, kita filter jika tidak ada pesan user
+    # 2. Filter Pesan
+    # Jangan balas pesan dari diri sendiri (looping) atau pesan kosong
+    if is_from_me:
+        return jsonify({"status": "ignored", "reason": "from_me"}), 200
+        
     if not user_message or not sender_number:
-        return jsonify({"status": "ignored"})
+        return jsonify({"status": "ignored", "reason": "empty"}), 200
 
-    print(f"Pesan Masuk dari {sender_number}: {user_message}")
+    print(f"📩 Pesan Masuk dari {sender_number}: {user_message}")
 
     try:
-        # 2. Panggil AI Gemini
+        # 3. Panggil AI Gemini
         prompt = f"User bernama {sender_name} bertanya: {user_message}"
         response = model.generate_content(prompt)
         bot_reply = response.text
 
-        # 3. KIRIM BALASAN (Metode Push/Aktif)
-        # Kita tidak me-return 'reply' di JSON, tapi langsung menembak API Fontee
-        print(f"Mengirim balasan ke {sender_number}...")
+        # 4. KIRIM BALASAN (Metode Push/Aktif)
+        print(f"📤 Mengirim balasan ke {sender_number}...")
         kirim_wa(sender_number, bot_reply)
 
     except Exception as e:
-        print(f"Error AI/System: {e}")
+        print(f"❌ Error AI/System: {e}")
         # Kirim pesan error tetap via WA agar user tahu
-        kirim_wa(sender_number, "Maaf Bunda, Bidan Citra sedang perbaikan sistem sebentar. Coba lagi nanti ya 🙏")
+        kirim_wa(sender_number, "Maaf, sedang perbaikan sistem sebentar. Coba lagi nanti ya")
 
-    # Return OK ke Fontee agar webhook tidak dikirim ulang (looping)
-    return jsonify({"status": "success", "detail": "Message processed"})
+    # Return OK ke Fontee agar webhook tidak dikirim ulang
+    return jsonify({"status": "success", "detail": "Message processed"}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001)
