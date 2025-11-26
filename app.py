@@ -5,9 +5,8 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-GEMINI_API_KEY = "MASUKKAN_KEY_GEMINI_DARI_GOOGLE_AI_STUDIO_DISINI"
+GEMINI_API_KEY = "AIzaSyAf0tANBY5AcIXo8QAMcaCjhc13-IXhx04"
 
-# Konfigurasi Library Gemini
 try:
     genai.configure(api_key=GEMINI_API_KEY)
 except Exception as e:
