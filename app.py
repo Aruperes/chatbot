@@ -1,20 +1,16 @@
 import os
 import sys
-import requests # Library wajib untuk mode Push
+import requests 
 from flask import Flask, request, jsonify
 import google.generativeai as genai
 from dotenv import load_dotenv 
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 
-# ==============================================================================
-# KONFIGURASI
-# ==============================================================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-FONTEE_TOKEN = os.getenv("FONTEE_TOKEN") # Wajib ada di .env
+FONTEE_TOKEN = os.getenv("FONTEE_TOKEN") 
 
 # Validasi Key
 if not GEMINI_API_KEY or not FONTEE_TOKEN:
@@ -28,26 +24,33 @@ except Exception as e:
 
 # Inisialisasi Model
 model = genai.GenerativeModel(
-    model_name='gemini-2.5-flash',
+    model_name='gemini-.5-flash',
     system_instruction="""
-    Kamu adalah 'Bidan Citra', asisten virtual ahli pencegahan stunting.
-    Karaktermu: Ramah, keibuan (panggil user 'Bunda'), sabar, dan terpercaya.
+    [IDENTITAS PERSONA]
+    Nama: Hana
+    Umur: 29 Tahun
+    Jenis Kelamin: Perempuan
+    Pekerjaan: Ahli Gizi & Konselor Stunting
+    Domisili: Indonesia
 
-    Tugasmu menjawab pertanyaan seputar:
-    1. Pra-nikah (Cek kesehatan, zat besi, lingkar lengan atas).
-    2. Kehamilan (Nutrisi protein hewani, pantang rokok, rutin ke posyandu).
-    3. Balita (ASI Eksklusif 0-6 bulan, MPASI telur/ikan/ayam).
+    [SIFAT & KARAKTER]
+    1. Keibuan & Mengayomi: Selalu memanggil user dengan sapaan hangat.
+    2. Ramah & Sabar: Tidak pernah marah jika user bertanya hal dasar/berulang.
+    3. Terpercaya: Menjawab berdasarkan fakta medis Kemenkes/WHO tapi dengan bahasa yang mudah dimengerti orang awam (hindari istilah medis rumit).
+    4. Empati Tinggi: Selalu validasi perasaan user dulu (contoh: "Wah, pasti capek ya Bun gadang terus...").
 
-    Aturan Jawab:
-    - Jawaban MAKSIMAL 50 kata agar nyaman dibaca di WhatsApp.
-    - Gunakan emoji (🌸, 👶, 🤰) secukupnya.
-    - Jika ditanya hal medis berat, suruh segera ke Puskesmas.
+    [TOPIK KEAHLIAN]
+    1. Pra-nikah/Remaja: Edukasi tablet tambah darah, bahaya anemia, lingkar lengan atas (LiLA).
+    2. Kehamilan (1000 HPK): Nutrisi protein hewani, pantang asap rokok, rutin cek ANC ke Posyandu/Puskesmas.
+    3. Balita (0-2 Tahun): ASI Eksklusif (harga mati 0-6 bulan), MPASI Protein Hewani (Telur/Ikan/Ayam), pantau grafik KMS.
+
+    [ATURAN JAWAB]
+    - GAYA BAHASA: Santai, sopan, akrab, menggunakan Bahasa Indonesia yang baik tapi luwes.
+    - PANJANG JAWABAN: MAKSIMAL 50-60 kata (Penting! Agar nyaman dibaca di chat WA).
+    - BATASAN: Jika ditanya diagnosis penyakit serius (kejang, pendarahan, demam tinggi >3hari), JANGAN berikan resep obat. Suruh segera ke Puskesmas/Dokter/IGD.
     """
 )
 
-# ==============================================================================
-# FUNGSI KIRIM PESAN (PUSH KE FONNTE)
-# ==============================================================================
 def kirim_wa(nomor_tujuan, pesan):
     url = "https://api.fonnte.com/send"
     headers = {
@@ -56,18 +59,15 @@ def kirim_wa(nomor_tujuan, pesan):
     payload = {
         "target": nomor_tujuan,
         "message": pesan,
-        "countryCode": "62" # Opsional, antisipasi jika nomor tanpa 62
+        "countryCode": "62" 
     }
     
     try:
         response = requests.post(url, headers=headers, data=payload)
-        print(f"Log Fonnte: {response.text}") # Log respon dari Fontee
+        print(f"Log Fonnte: {response.text}") 
     except Exception as e:
         print(f"Gagal Mengirim WA: {e}")
 
-# ==============================================================================
-# ROUTE WEBHOOK
-# ==============================================================================
 @app.route('/', methods=['GET'])
 def home():
     return "Server Bidan Citra (Push Mode) is Running!"
@@ -75,19 +75,16 @@ def home():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
-    
-    # 1. Validasi Data Masuk
+
     if not data: 
         return jsonify({"status": "error", "reason": "No data"}), 400
 
     # Ambil data pengirim
     user_message = data.get('message', '')
-    sender_number = data.get('sender', '') # Nomor HP pengirim (Target balasan)
-    sender_name = data.get('name', 'Bunda') # Nama pengirim (jika ada)
-    is_from_me = data.get('from_me', False) # Cek apakah pesan dari bot sendiri
-
-    # 2. Filter Pesan
-    # Jangan balas pesan dari diri sendiri (looping) atau pesan kosong
+    sender_number = data.get('sender', '') 
+    sender_name = data.get('name', 'Bunda') 
+    is_from_me = data.get('from_me', False) 
+ 
     if is_from_me:
         return jsonify({"status": "ignored", "reason": "from_me"}), 200
         
@@ -97,21 +94,16 @@ def webhook():
     print(f"📩 Pesan Masuk dari {sender_number}: {user_message}")
 
     try:
-        # 3. Panggil AI Gemini
         prompt = f"User bernama {sender_name} bertanya: {user_message}"
         response = model.generate_content(prompt)
         bot_reply = response.text
-
-        # 4. KIRIM BALASAN (Metode Push/Aktif)
-        print(f"📤 Mengirim balasan ke {sender_number}...")
+        print(f"Mengirim balasan ke {sender_number}...")
         kirim_wa(sender_number, bot_reply)
 
     except Exception as e:
-        print(f"❌ Error AI/System: {e}")
-        # Kirim pesan error tetap via WA agar user tahu
+        print(f"Error AI/System: {e}")
         kirim_wa(sender_number, "Maaf, sedang perbaikan sistem sebentar. Coba lagi nanti ya")
 
-    # Return OK ke Fontee agar webhook tidak dikirim ulang
     return jsonify({"status": "success", "detail": "Message processed"}), 200
 
 if __name__ == '__main__':
