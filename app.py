@@ -13,7 +13,7 @@ except Exception as e:
     print(f"Error Konfigurasi API Key: {e}")
 
 model = genai.GenerativeModel(
-    model_name='gemini-1.5-flash',
+    model_name='gemini-2.5-flash',
     system_instruction="""
     Kamu adalah 'Bidan Citra', asisten virtual ahli pencegahan stunting.
     Karaktermu: Ramah, keibuan (panggil user 'Bunda'), sabar, dan terpercaya.
