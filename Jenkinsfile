@@ -9,16 +9,18 @@ pipeline {
                 sh 'pkill -f app.py || true'
                 echo 'Proses lama dimatikan. Mengambil kode baru...'
                 
-                // Mengambil kode terbaru dari GitHub (otomatis dilakukan Jenkins)
+                // (Jenkins otomatis mengambil kode terbaru dari GitHub di sini)
             }
         }
 
         stage('2. Install Library') {
             steps {
                 echo 'Menginstall library Python...'
-                // Install library yang ada di requirements.txt
-                // Menggunakan --break-system-packages jika di Ubuntu terbaru, atau virtualenv (opsional)
-                sh 'pip3 install -r requirements.txt || pip install -r requirements.txt'
+                
+                // --- BAGIAN YANG DIMODIFIKASI ---
+                // Menambahkan --break-system-packages agar diizinkan oleh sistem VPS
+                // Ini memaksa pip untuk menginstall library meski tanpa virtual environment
+                sh 'pip3 install -r requirements.txt --break-system-packages'
             }
         }
 
@@ -27,7 +29,7 @@ pipeline {
                 echo 'Menjalankan Bidan Citra...'
                 script {
                     // Jalankan app.py di background (nohup)
-                    // Log output disimpan di server_log.txt
+                    // Log output disimpan di server_log.txt untuk debugging
                     sh 'nohup python3 app.py > server_log.txt 2>&1 &'
                 }
                 echo 'Bot berhasil dijalankan di background!'
