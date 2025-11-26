@@ -26,7 +26,7 @@ pipeline {
 
         stage('3. Deploy (Jalankan Bot)') {
             steps {
-                echo 'Menjalankan Bidan Citra...'
+                echo 'Menjalankan  Bot...'
                 script {
                     // Jalankan app.py di background (nohup)
                     // Log output disimpan di server_log.txt untuk debugging
