@@ -19,8 +19,8 @@ pipeline {
                 
                 // --- BAGIAN YANG DIMODIFIKASI ---
                 // Menambahkan --break-system-packages agar diizinkan oleh sistem VPS
-                // Ini memaksa pip untuk menginstall library meski tanpa virtual environment
-                sh 'pip3 install -r requirements.txt --break-system-packages'
+                // Menambahkan --ignore-installed untuk mengatasi error "Cannot uninstall... installed by debian"
+                sh 'pip3 install -r requirements.txt --break-system-packages --ignore-installed'
             }
         }
 
