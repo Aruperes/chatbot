@@ -24,7 +24,7 @@ except Exception as e:
 
 # Inisialisasi Model
 model = genai.GenerativeModel(
-    model_name='gemini-.5-flash',
+    model_name='gemini-2.5-flash',
     system_instruction="""
     [IDENTITAS PERSONA]
     Nama: Hana
